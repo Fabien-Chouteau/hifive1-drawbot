@@ -27,6 +27,8 @@
 with Settings;
 with Console;
 with Stepper;
+with Gcode; use Gcode;
+with HAL.GPIO;
 
 package body Step_Control is
 
@@ -45,15 +47,109 @@ package body Step_Control is
 
    Z_Count : Integer := 0;
 
-   procedure Raise_Pen;
-   procedure Lower_Pen;
+   procedure Enable_Servos;
+   procedure Disable_Servos;
+
+   -------------
+   -- Set_Pen --
+   -------------
+
+   procedure Set_Pen (Pos : Pen_Position) is
+   begin
+      Set_Compare (PWM,
+                   Pen_Cmp_ID,
+                   (case Pos is
+                       when High => Pen_High_Duty,
+                       when Low  => Pen_Low_Duty));
+
+      Enable_Servos;
+      Console.Wait_Milliseconds (500);
+      Disable_Servos;
+   end Set_Pen;
+
+   ----------------
+   -- Set_Eraser --
+   ----------------
+
+   procedure Set_Eraser (Pos : Eraser_Position) is
+   begin
+      Set_Compare (PWM,
+                   Eraser_Cmp_ID,
+                   (case Pos is
+                       when High => Eraser_High_Duty,
+                       when Low  => Eraser_Low_Duty));
+      Enable_Servos;
+      Console.Wait_Milliseconds (500);
+      Disable_Servos;
+   end Set_Eraser;
+
+   -------------------
+   -- Enable_Servos --
+   -------------------
+
+   procedure Enable_Servos is
+   begin
+      Eraser_IO.Set_IO_Function (IOF1);
+      Pen_IO.Set_IO_Function (IOF1);
+   end Enable_Servos;
+
+   --------------------
+   -- Disable_Servos --
+   --------------------
+
+   procedure Disable_Servos is
+   begin
+      Eraser_IO.Set_IO_Function (Disabled);
+      Pen_IO.Set_IO_Function (Disabled);
+   end Disable_Servos;
 
    ---------------
    -- Initalize --
    ---------------
 
    procedure Initalize is
+      Unref : Boolean with Unreferenced;
    begin
+
+      -- Pen --
+      --        Pen_IO.Set_IO_Function (IOF1);
+      Pen_IO.Set_IO_Function (Disabled);
+      Unref := Pen_IO.Set_Mode (HAL.GPIO.Output);
+      Pen_IO.Set;
+      Pen_IO.Invert;
+
+      -- Eraser --
+      --        Eraser_IO.Set_IO_Function (IOF1);
+      Unref := Eraser_IO.Set_Mode (HAL.GPIO.Output);
+      Eraser_IO.Set_IO_Function (Disabled);
+      Eraser_IO.Set;
+      Eraser_IO.Invert;
+
+      Disable_Servos;
+
+      -- PWM --
+
+      Configure (This          => PWM,
+                 Scale         => PWM_Scale,
+                 Sticky        => False,
+                 Reset_To_Zero => True,
+                 Deglitch      => False);
+
+      Set_Compare (PWM, 0, PWM_Period);
+      Set_Compare (PWM, Pen_Cmp_ID, Pen_High_Duty);
+      Set_Compare (PWM, Eraser_Cmp_ID, Eraser_High_Duty);
+
+      Set_Count (PWM, 0);
+      Enable_Continous (PWM);
+      -- Steppers --
+      Unref := Enable_Motors_IO.Set_Mode (HAL.GPIO.Output);
+
+      Unref := Step_Motor_X.Set_Mode (HAL.GPIO.Output);
+      Unref := Dir_Motor_X.Set_Mode (HAL.GPIO.Output);
+      Unref := Step_Motor_Y.Set_Mode (HAL.GPIO.Output);
+      Unref := Dir_Motor_Y.Set_Mode (HAL.GPIO.Output);
+
+
       Set_Stepper_Frequency (Settings.Idle_Stepper_Frequency);
       Stepper.Set_Stepper_Callbacks
         (Set_Step              => Set_Step_Pin'Access,
@@ -63,27 +159,7 @@ package body Step_Control is
          Home_Test             => Home_Test'Access,
          Motor_Enable          => Motor_Enable'Access);
 
-      --  Release stepper task
---        Ada.Synchronous_Task_Control.Set_True (Task_Sync);
    end Initalize;
-
-   ---------------
-   -- Raise_Pen --
-   ---------------
-
-   procedure Raise_Pen is
-   begin
-      Console.Print_Line ("Pen should be up");
-   end Raise_Pen;
-
-   ---------------
-   -- Lower_Pen --
-   ---------------
-
-   procedure Lower_Pen is
-   begin
-      Console.Print_Line ("Pen should be down");
-   end Lower_Pen;
 
    ------------------------
    -- Set_Step_Direction --
@@ -94,13 +170,20 @@ package body Step_Control is
    is
    begin
       Current_Dir (Axis) := Dir;
-      if Axis /= Z_Axis then
-         if Dir = Forward then
-            Dir_GPIO (Axis).Set;
-         else
-            Dir_GPIO (Axis).Clear;
-         end if;
-      end if;
+      case Axis is
+         when X_Axis =>
+            case Dir is
+               when Forward => Dir_Motor_X.Clear;
+               when Backward => Dir_Motor_X.Set;
+            end case;
+         when Y_Axis =>
+            case Dir is
+               when Forward => Dir_Motor_Y.Clear;
+               when Backward => Dir_Motor_Y.Set;
+            end case;
+         when others =>
+            null;
+      end case;
    end Set_Step_Direction;
 
    --------------------
@@ -109,9 +192,14 @@ package body Step_Control is
 
    procedure Clear_Step_Pin (Axis : Axis_Name) is
    begin
-      if Axis /= Z_Axis then
-         Step_GPIO (Axis).Clear;
-      end if;
+      case Axis is
+         when X_Axis =>
+            Step_Motor_X.Clear;
+         when Y_Axis =>
+            Step_Motor_Y.Clear;
+         when Z_Axis =>
+            null;
+      end case;
    end Clear_Step_Pin;
 
    ------------------
@@ -120,22 +208,25 @@ package body Step_Control is
 
    procedure Set_Step_Pin (Axis : Axis_Name) is
    begin
-      if Axis = Z_Axis then
+      case Axis is
+         when X_Axis =>
+            Step_Motor_X.Set;
+         when Y_Axis =>
+            Step_Motor_Y.Set;
+         when Z_Axis =>
+            null;
          if Current_Dir (Axis) = Forward then
             if Z_Count = 0 then
-               Raise_Pen;
+                  Set_Pen (High);
             end if;
             Z_Count := Z_Count + 1;
          else
             if Z_Count = 0 then
-               Lower_Pen;
+                  Set_Pen (Low);
             end if;
             Z_Count := Z_Count - 1;
          end if;
-
-      else
-         Step_GPIO (Axis).Set;
-      end if;
+      end case;
    end Set_Step_Pin;
 
    ---------------------------
@@ -166,11 +257,12 @@ package body Step_Control is
    procedure Motor_Enable (Axis : Axis_Name;
                            Enable : Boolean) is
    begin
+      Console.Print_Line ("Motor_Enable (" & Axis'Img & ", Enable =>" & Enable'Img & ")");
       if Axis /= Z_Axis then
          if Enable then
-            Not_Enable_GPIO (Axis).Clear;
+            Enable_Motors_IO.Clear;
          else
-            Not_Enable_GPIO (Axis).Set;
+            Enable_Motors_IO.Set;
          end if;
       end if;
    end Motor_Enable;

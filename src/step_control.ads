@@ -20,28 +20,44 @@
 --                                                                           --
 -------------------------------------------------------------------------------
 
-with Gcode; use Gcode;
-
-with HAL.GPIO; use HAL.GPIO;
+with FE310.GPIO; use FE310.GPIO;
 with HiFive1; use HiFive1;
+with FE310.PWM; use FE310.PWM;
+with FE310.Device; use FE310.Device;
 
 package Step_Control is
    procedure Initalize;
+
+   type Pen_Position is (High, Low);
+   type Eraser_Position is (High, Low);
+
+   procedure Set_Pen (Pos : Pen_Position);
+   procedure Set_Eraser (Pos : Eraser_Position);
+
 private
 
-   subtype Drawbot_Axes is Axis_Name range X_Axis .. Y_Axis;
+   PWM       : PWM_Device renames PWM1;
 
-   type GPIO_Point_Per_Axis is array (Drawbot_Axes) of not null Any_GPIO_Point;
+   Pen_Cmp_ID    : constant Comparator_ID := 1;
+   Pen_Low_Duty  : constant := 140;
+   Pen_High_Duty : constant := 65;
+   Pen_IO        : GPIO_Point renames HF1_Pin_3;
 
-   Step_GPIO : GPIO_Point_Per_Axis :=
-     (X_Axis => HF1_Pin_12'Access,
-      Y_Axis => HF1_Pin_7'Access);
+   Eraser_Cmp_ID    : constant Comparator_ID := 3;
+   Eraser_Low_Duty  : constant := 90;
+   Eraser_High_Duty : constant := 35;
+   Eraser_IO        : GPIO_Point renames HF1_Pin_6;
 
-   Dir_GPIO : GPIO_Point_Per_Axis :=
-     (X_Axis => HF1_Pin_5'Access,
-      Y_Axis => HF1_Pin_8'Access);
+   PWM_Scale  : constant := 8;
+   PWM_Period : constant := 1300;
+   --  Duty:  30 -> 0.5ms
+   --  Duty: 100 -> 1.5ms
+   --  Duty: 170 -> 2.5ms
 
-   Not_Enable_GPIO : GPIO_Point_Per_Axis :=
-     (X_Axis => HF1_Pin_4'Access,
-      Y_Axis => HF1_Pin_4'Access);
+   Enable_Motors_IO : GPIO_Point renames HF1_Pin_4;
+   Step_Motor_X     : GPIO_Point renames HF1_Pin_12;
+   Dir_Motor_X      : GPIO_Point renames HF1_Pin_5;
+   Step_Motor_Y     : GPIO_Point renames HF1_Pin_7;
+   Dir_Motor_Y      : GPIO_Point renames HF1_Pin_8;
+
 end Step_Control;

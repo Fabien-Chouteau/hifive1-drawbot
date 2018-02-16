@@ -22,7 +22,7 @@
 
 package Gcode.Parameters is
 
-   Max_Parameter : constant := 50;
+   Max_Parameter : constant := 1;
    type Param_Type is (Undefined, Named, Numbered);
    type Parameters_Set is private;
    subtype Parameter_Id is Natural;

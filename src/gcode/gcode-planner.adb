@@ -60,15 +60,6 @@ package body Gcode.Planner is
       end case;
    end record;
 
---     package Motion_BLock_Buffer is
---       new Bounded_Buffers_Blocking_Consumer (Motion_Block,
---                                              Settings.Block_Buffer_Size,
---                                              System.Default_Priority + 1);
---     package Segment_Block_Buffer is
---       new Bounded_Buffers_Blocking_Producer (Segment,
---                                              Settings.Segment_Buffer_Size,
---                                              System.Default_Priority + 2);
-
    Planner_Position : Step_Position;
 
    procedure Wait_And_Add_Motion (M_Block : Motion_Block);
@@ -81,10 +72,6 @@ package body Gcode.Planner is
    procedure Wait_And_Add_Motion (M_Block : Motion_Block) is
    begin
       Planner_Task_Body (M_Block);
---        while Motion_Block_Buffer.Full loop
---           null;
---        end loop;
---        Motion_Block_Buffer.Insert (M_Block);
    end Wait_And_Add_Motion;
 
    ------------------------

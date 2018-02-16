@@ -23,6 +23,9 @@
 with Gcode.Parser;
 with Gcode.Execution;
 with Gcode.Error;
+with Gcode.Motion;
+
+with Step_Control;
 
 with RISCV_Adacore_Gcode;
 with Console;
@@ -30,14 +33,9 @@ with System; use System;
 
 package body Gcode_Controller is
 
---     Task_Sync : Ada.Synchronous_Task_Control.Suspension_Object;
+   Print_Enabled : constant Boolean := False;
 
---     task Execution_Task is
---        pragma Priority (System.Default_Priority);
---        pragma Storage_Size (40 * 1024);
---     end Execution_Task;
-
-   Print_Enabled : constant Boolean := True;
+   procedure Erase_All;
 
    procedure Last_Chance_Handler
      (Msg : System.Address; Line : Integer);
@@ -108,6 +106,49 @@ package body Gcode_Controller is
       end if;
    end Put;
 
+   ---------------
+   -- Erase_All --
+   ---------------
+
+   procedure Erase_All is
+   begin
+      --  Enable motor
+      Gcode_Controller.Execute ("M17");
+
+      --  Raise pen
+      Gcode.Motion.Move_Line (Ctx, (0.0, 0.0, 1.0), Feed_Rate => 100.0);
+
+      --  Lower eraser
+      Step_Control.Set_Eraser (Step_Control.Low);
+
+      --  "Lower" pen
+      Gcode.Motion.Move_Line (Ctx, (0.0, 0.0, -1.0), Feed_Rate => 100.0);
+
+      for Y in 1 .. 12 loop
+         if Y mod 2 = 0 then
+            Gcode.Motion.Move_Line (Ctx, (350.0, -Float (Y * 10), -1.0), Feed_Rate => 100.0);
+         else
+            Gcode.Motion.Move_Line (Ctx, (50.0, -Float (Y * 10), -1.0), Feed_Rate => 100.0);
+         end if;
+      end loop;
+
+      --  Right vertical cleanup
+      Gcode.Motion.Move_Line (Ctx, (357.0, 0.0, -1.0), Feed_Rate => 100.0);
+
+      --  Left vertical cleanup
+      Gcode.Motion.Move_Line (Ctx, (47.0, -120.0, -1.0), Feed_Rate => 100.0);
+      Gcode.Motion.Move_Line (Ctx, (47.0, 0.0, -1.0), Feed_Rate => 100.0);
+
+      --  Go back home
+      Gcode.Motion.Move_Line (Ctx, (0.0, 0.0, 1.0), Feed_Rate => 100.0);
+
+      --  Raise eraser
+      Step_Control.Set_Eraser (Step_Control.High);
+
+      --  Disable motor
+      Gcode_Controller.Execute ("M18");
+   end Erase_All;
+
    --------------------
    -- Execution_Task --
    --------------------
@@ -116,11 +157,24 @@ package body Gcode_Controller is
    begin
 
       loop
-         for Str_Ptr of RISCV_Adacore_Gcode.Gcode loop
-            Ctx.Put_Line ("Executing: '" & Str_Ptr.all & "'");
-            Gcode_Controller.Execute (Str_Ptr.all);
-         end loop;
+         Console.Print_Line ("Disable motors");
+         Gcode_Controller.Execute ("M18");
+         Console.Print_Line ("Wait 10 secs");
          Console.Wait_Milliseconds (10_000);
+
+         Console.Print_Line ("Enable motors");
+         Gcode_Controller.Execute ("M17");
+
+         for FP of RISCV_Adacore_Gcode.Coords loop
+            Gcode.Motion.Move_Line (Ctx, FP, Feed_Rate => 100.0);
+         end loop;
+
+         Console.Print_Line ("Disable motors");
+         Gcode_Controller.Execute ("M18");
+
+         Console.Wait_Milliseconds (1_000 * 60 * 5);
+
+         Erase_All;
       end loop;
    end Execution_Task_Body;
 

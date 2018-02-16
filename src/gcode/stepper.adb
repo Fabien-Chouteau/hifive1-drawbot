@@ -108,7 +108,10 @@ package body Stepper is
          end if;
       end loop;
 
-      Console.Wait_Milliseconds (Settings.Direction_Pulse_Delay_Ms);
+      --        Console.Wait_Milliseconds (Settings.Direction_Pulse_Delay_Ms);
+      for X in 1 .. 10 loop
+         null;
+      end loop;
 
       for Axis in Axis_Name loop
 
@@ -135,14 +138,15 @@ package body Stepper is
 --              Console.Print_Line (Axis'Img & " position: " & St_Data.Current_Position (Axis)'Img);
          end if;
       end loop;
-
-      Console.Wait_Milliseconds (Settings.Step_Pulse_Duration_Ms);
+      --        Console.Wait_Milliseconds (Settings.Step_Pulse_Duration_Ms);
+      for X in 1 .. 10 loop
+         null;
+      end loop;
 
       for Axis in Axis_Name loop
-         if Do_Step (Axis) then
-            St_Data.Clear_Step_Callback (Axis);
-         end if;
+         St_Data.Clear_Step_Callback (Axis);
       end loop;
+
    end Do_Step_Cycle;
 
 

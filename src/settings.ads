@@ -46,7 +46,7 @@ package Settings is
 
    --  Property of the stepper motor and leadscrew
 
-   Max_Step_Per_Segment : constant Gcode.Steps := 100;
+   Max_Step_Per_Segment : constant Gcode.Steps := 10000;
    --  Maximum number of steps in a segment
 
    Stepper_Max_Frequency : constant Gcode.Frequency_Value := 10_000.0;
