@@ -28,6 +28,22 @@ with Console;
 
 package body Stepper is
 
+   --  Translation to CoreXY limits
+   Stepper_Max_Limit : constant Gcode.Step_Position :=
+     (if Settings.Use_CoreXY_Motion then
+        (X_Axis => Tool_Max_Limit_Cartesian (X_Axis) + Tool_Max_Limit_Cartesian (Y_Axis),
+         Y_Axis => Tool_Max_Limit_Cartesian (X_Axis) - Tool_Min_Limit_Cartesian (Y_Axis),
+         Z_Axis => Tool_Max_Limit_Cartesian (Z_Axis))
+      else
+         Tool_Max_Limit_Cartesian);
+
+   Stepper_Min_Limit : constant Gcode.Step_Position :=
+     (if Settings.Use_CoreXY_Motion then
+        (X_Axis => Tool_Min_Limit_Cartesian (X_Axis) + Tool_Min_Limit_Cartesian (Y_Axis),
+         Y_Axis => Tool_Min_Limit_Cartesian (X_Axis) - Tool_Max_Limit_Cartesian (Y_Axis),
+         Z_Axis => Tool_Min_Limit_Cartesian (Z_Axis))
+      else Tool_Min_Limit_Cartesian);
+
    type Do_Step_Array is array (Axis_Name) of Boolean;
 
    procedure Dummy_Set_Step_Pin (Axis : Axis_Name) is null;
@@ -35,7 +51,7 @@ package body Stepper is
    procedure Dummy_Set_Direction_Pin (Axis : Axis_Name;
                                       Dir : Direction) is null;
    procedure Dummy_Set_Stepper_Frequency (Freq_Hz : Frequency_Value) is null;
-   function Dummy_Home_Test (Axis : Axis_Name) return Boolean is (False);
+   function Dummy_Home_Test (Unused : Axis_Name) return Boolean is (False);
    procedure Dummy_Motor_Enable  (Axis : Axis_Name; Enable : Boolean) is null;
 
    procedure Do_Homing;
@@ -55,8 +71,9 @@ package body Stepper is
       Directions       : Axis_Directions := (others => Forward);
       --  Direction of steps for eaxh axis
 
-      Block_Steps : Step_Position;
-      --  Steps for the current Motion block each axis
+      Abs_Block_Steps : Step_Position;
+      --  Absolute number of steps for the current Motion block each axis
+
       Block_Event_Count : Steps;
       --  Step count for the current block
 
@@ -126,16 +143,22 @@ package body Stepper is
                St_Data.Current_Position (Axis) :=
                  St_Data.Current_Position (Axis) - 1;
             end if;
-         end if;
 
-         if St_Data.Current_Position (Axis) > Settings.Max_Limit (Axis) then
-            Console.Print_Line (Axis'Img & " off max limit");
-            raise Program_Error;
-         elsif St_Data.Current_Position (Axis) < Settings.Min_Limit (Axis) then
-            Console.Print_Line (Axis'Img & " off min limit");
-            raise Program_Error;
---           else
---              Console.Print_Line (Axis'Img & " position: " & St_Data.Current_Position (Axis)'Img);
+            if St_Data.Current_Position (Axis) > Stepper_Max_Limit (Axis) then
+               Console.Print_Line (Image (Axis) & " off max limit" &
+                                     " (limit:" & Stepper_Max_Limit (Axis)'Img &
+                                     " pos:" & St_Data.Current_Position (Axis)'Img
+                                   & ")");
+               raise Program_Error;
+            elsif St_Data.Current_Position (Axis) < Stepper_Min_Limit (Axis) then
+               Console.Print_Line (Image (Axis) & " off min limit" &
+                                     " (limit:" & Stepper_Min_Limit (Axis)'Img &
+                                     " pos:" & St_Data.Current_Position (Axis)'Img
+                                   & ")");
+               raise Program_Error;
+--              else
+--                 Console.Print_Line (Image (Axis) & " position: " & St_Data.Current_Position (Axis)'Img);
+            end if;
          end if;
       end loop;
       --        Console.Wait_Milliseconds (Settings.Step_Pulse_Duration_Ms);
@@ -305,7 +328,7 @@ package body Stepper is
 
                --  Prep data for bresenham algorithm
                St_Data.Counter := (others => 0);
-               St_Data.Block_Steps := St_Data.Seg.Block_Steps;
+               St_Data.Abs_Block_Steps := St_Data.Seg.Abs_Block_Steps;
                St_Data.Block_Event_Count :=
                  St_Data.Seg.Block_Event_Count;
             end if;
@@ -334,9 +357,9 @@ package body Stepper is
             --  Bresenham for each axis
             for Axis in Axis_Name loop
 
-               if St_Data.Block_Steps (Axis) /= 0 then
+               if St_Data.Abs_Block_Steps (Axis) /= 0 then
                   St_Data.Counter (Axis) :=
-                    St_Data.Counter (Axis) + St_Data.Block_Steps (Axis);
+                    St_Data.Counter (Axis) + St_Data.Abs_Block_Steps (Axis);
                   if St_Data.Counter (Axis) >= St_Data.Block_Event_Count then
                      St_Data.Do_Step (Axis) := True;
                      St_Data.Counter (Axis) :=

@@ -59,8 +59,8 @@ package Gcode.Planner is
             Directions : Axis_Directions := (others => Forward);
             --  Step direction for each axis
 
-            Block_Steps : Step_Position;
-            --  Steps for the current Motion block each axis
+            Abs_Block_Steps : Step_Position;
+            --  Absolute number of steps for the current Motion block each axis
 
             Block_Event_Count : Steps;
             --  Step count for the current block

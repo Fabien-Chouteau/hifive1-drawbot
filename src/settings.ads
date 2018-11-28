@@ -25,6 +25,8 @@ with Gcode; use Gcode;
 
 package Settings is
 
+   Use_CoreXY_Motion : constant Boolean := True;
+
    Idle_Stepper_Frequency : constant Gcode.Frequency_Value := 100.0;
    --  Frequency of the stepper when the machine is idle (Hz)
    Dwell_Stepper_Frequency : constant Gcode.Frequency_Value := 100.0;
@@ -34,15 +36,17 @@ package Settings is
                                                            Y_Axis => 38.0,
                                                            Z_Axis => 1.0);
 
-   Max_Limit : constant Gcode.Step_Position :=
+   Tool_Max_Limit_Cartesian : constant Gcode.Step_Position :=
      (X_Axis => Integer (Step_Per_Millimeter (X_Axis)) * 358,
       Y_Axis => 0,
       Z_Axis => 10);
+   --  Tool max position in carstesian coordinate
 
-   Min_Limit : constant Gcode.Step_Position :=
+   Tool_Min_Limit_Cartesian : constant Gcode.Step_Position :=
      (X_Axis => 0,
       Y_Axis => Integer (Step_Per_Millimeter (X_Axis)) * (-123),
       Z_Axis => -10);
+   --  Tool min position in carstesian coordinate
 
    --  Property of the stepper motor and leadscrew
 

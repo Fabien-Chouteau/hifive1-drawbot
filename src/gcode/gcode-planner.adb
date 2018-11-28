@@ -27,7 +27,6 @@ with Stepper;  use Stepper;
 
 package body Gcode.Planner is
 
-   use type Float_Position;
    use type Step_Position;
 
    type Motion_Kind is (Motion_Line, Motion_Dwell, Motion_Homing,
@@ -36,21 +35,20 @@ package body Gcode.Planner is
    type Motion_Block (Kind : Motion_Kind := Motion_Line) is record
       case Kind is
          when Motion_Line =>
-            Target           : Float_Position;
+            Target             : Float_Position;
 
-            Relative_Steps   : Step_Position;
-            --  Steps for each axis
+            Abs_Relative_Steps : Step_Position;
+            --  Absolute number of steps for each axis
 
-            Directions       : Axis_Directions := (others => Forward);
+            Directions         : Axis_Directions := (others => Forward);
             --  Step direction for each axis
 
-            Step_Event_Count : Steps := 0;
+            Step_Event_Count   : Steps := 0;
             --  Number of steps required to complete this block
 
-            Entry_Speed   : Step_Speed := 0.0;
-            Nominal_Speed : Step_Speed := 0.0;
-            Acceleration  : Step_Acceleration := Step_Acceleration'Last;
-            Remaining_Distance : Float_Value := 0.0;
+            Entry_Speed        : Step_Speed := 0.0;
+            Nominal_Speed      : Step_Speed := 0.0;
+            Acceleration       : Step_Acceleration := Step_Acceleration'Last;
          when Motion_Dwell =>
             Dwell_Duration   : Float_Value;
          when Motion_Homing =>
@@ -86,6 +84,7 @@ package body Gcode.Planner is
       pragma Unreferenced (Ctx);
       M_Block : Motion_Block (Kind => Motion_Line);
       Target_Steps : constant Step_Position := Milli_To_Step (Target);
+      Relative_Steps : Step_Position := Target_Steps - Planner_Position;
       Delta_MM : Float_Value;
 
       Unit_Vect : Float_Position;
@@ -93,31 +92,40 @@ package body Gcode.Planner is
       --  Unit vector of the block used for junction angle computation
    begin
 
-      M_Block.Relative_Steps := abs (Target_Steps - Planner_Position);
+      if Settings.Use_CoreXY_Motion then
+         declare
+            DX, DY, DA, DB : Steps;
+         begin
+            DX := Relative_Steps (X_Axis);
+            DY := Relative_Steps (Y_Axis);
+
+            DA := DX + DY;
+            DB := DX - DY;
+
+            Relative_Steps (X_Axis) := DA;
+            Relative_Steps (Y_Axis) := DB;
+         end;
+      end if;
+
+
+      M_Block.Abs_Relative_Steps := abs Relative_Steps;
 
       for Axis in Axis_Name loop
          M_Block.Step_Event_Count :=
            Steps'Max (M_Block.Step_Event_Count,
-                      M_Block.Relative_Steps (Axis));
+                      M_Block.Abs_Relative_Steps (Axis));
 
          --  Distance traveled in milimeters
          Delta_MM :=
-           Float_Value (Target_Steps (Axis) - Planner_Position (Axis))
+           Float_Value (Relative_Steps (Axis))
              / Settings.Step_Per_Millimeter (Axis);
 
          --  Direction of movement for this axis
          M_Block.Directions (Axis) :=
            (if Delta_MM < 0.0 then Backward else Forward);
 
-         --  Add square of each axis to compute distance
-         M_Block.Remaining_Distance :=
-           M_Block.Remaining_Distance + Delta_MM**2;
-
          Unit_Vect (Axis) := Delta_MM;
       end loop;
-
-      --  Compute distance
-      M_Block.Remaining_Distance := Sqrt (M_Block.Remaining_Distance);
 
       if M_Block.Step_Event_Count = 0 then
          --  zero-length block
@@ -220,7 +228,7 @@ package body Gcode.Planner is
               Steps (Motion.Dwell_Duration * Seg.Frequency);
 
             --  No axis is moving
-            Seg.Block_Steps := (others => 0);
+            Seg.Abs_Block_Steps := (others => 0);
             Seg.Block_Event_Count := Steps'Last;
 
             --  Blocking call
@@ -244,7 +252,7 @@ package body Gcode.Planner is
             Seg.New_Block := True;
 
             --  Segment values that will remain for the entire block
-            Seg.Block_Steps := Motion.Relative_Steps;
+            Seg.Abs_Block_Steps := Motion.Abs_Relative_Steps;
             Seg.Block_Event_Count := Motion.Step_Event_Count;
             Seg.Directions := Motion.Directions;
 
