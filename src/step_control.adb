@@ -108,19 +108,18 @@ package body Step_Control is
    ---------------
 
    procedure Initalize is
-      Unref : Boolean with Unreferenced;
    begin
 
       -- Pen --
       --        Pen_IO.Set_IO_Function (IOF1);
       Pen_IO.Set_IO_Function (Disabled);
-      Unref := Pen_IO.Set_Mode (HAL.GPIO.Output);
+      Pen_IO.Set_Mode (HAL.GPIO.Output);
       Pen_IO.Set;
       Pen_IO.Invert;
 
       -- Eraser --
       --        Eraser_IO.Set_IO_Function (IOF1);
-      Unref := Eraser_IO.Set_Mode (HAL.GPIO.Output);
+      Eraser_IO.Set_Mode (HAL.GPIO.Output);
       Eraser_IO.Set_IO_Function (Disabled);
       Eraser_IO.Set;
       Eraser_IO.Invert;
@@ -142,12 +141,12 @@ package body Step_Control is
       Set_Count (PWM, 0);
       Enable_Continous (PWM);
       -- Steppers --
-      Unref := Enable_Motors_IO.Set_Mode (HAL.GPIO.Output);
+      Enable_Motors_IO.Set_Mode (HAL.GPIO.Output);
 
-      Unref := Step_Motor_X.Set_Mode (HAL.GPIO.Output);
-      Unref := Dir_Motor_X.Set_Mode (HAL.GPIO.Output);
-      Unref := Step_Motor_Y.Set_Mode (HAL.GPIO.Output);
-      Unref := Dir_Motor_Y.Set_Mode (HAL.GPIO.Output);
+      Step_Motor_X.Set_Mode (HAL.GPIO.Output);
+      Dir_Motor_X.Set_Mode (HAL.GPIO.Output);
+      Step_Motor_Y.Set_Mode (HAL.GPIO.Output);
+      Dir_Motor_Y.Set_Mode (HAL.GPIO.Output);
 
 
       Set_Stepper_Frequency (Settings.Idle_Stepper_Frequency);

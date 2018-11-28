@@ -39,8 +39,8 @@ private
    PWM       : PWM_Device renames PWM1;
 
    Pen_Cmp_ID    : constant Comparator_ID := 1;
-   Pen_Low_Duty  : constant := 140;
-   Pen_High_Duty : constant := 65;
+   Pen_Low_Duty  : constant := 65;
+   Pen_High_Duty : constant := 140;
    Pen_IO        : GPIO_Point renames HF1_Pin_3;
 
    Eraser_Cmp_ID    : constant Comparator_ID := 3;
