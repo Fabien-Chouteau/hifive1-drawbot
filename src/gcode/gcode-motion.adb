@@ -20,7 +20,7 @@
 --                                                                           --
 -------------------------------------------------------------------------------
 
-with Ada.Numerics; use Ada.Numerics;
+with Numerics; use Numerics;
 with Gcode.Planner;
 
 package body Gcode.Motion is

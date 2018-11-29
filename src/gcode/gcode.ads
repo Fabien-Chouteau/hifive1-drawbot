@@ -20,7 +20,7 @@
 --                                                                           --
 -------------------------------------------------------------------------------
 
-with Ada.Numerics.Generic_Elementary_Functions;
+with Numerics.Generic_Elementary_Functions;
 with Coords;
 
 package Gcode is
@@ -30,8 +30,7 @@ package Gcode is
    subtype Frequency_Value is Float;
 
    package Float_Functions is new
-     Ada.Numerics.Generic_Elementary_Functions (Float_Value);
-   use Float_Functions;
+     Numerics.Generic_Elementary_Functions (Float_Value);
 
    type Word is record
       Value  : Float_Value;
@@ -72,4 +71,9 @@ package Gcode is
    function Image (Val : Float_Value) return String;
    function Image (Pos : Float_Position) return String;
    function Image (Pos : Step_Position) return String;
+   function Image (Axis : Axis_Name) return String
+   is (case Axis is
+          when X_Axis => "X",
+          when Y_Axis => "Y",
+          when Z_Axis => "Z");
 end Gcode;

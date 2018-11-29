@@ -22,7 +22,7 @@
 
 --  with Ada.Text_IO; use Ada.Text_IO;
 with Gcode.Parameters; use Gcode.Parameters;
-with Ada.Numerics.Generic_Elementary_Functions;
+with Numerics.Generic_Elementary_Functions;
 
 package body Gcode.Shunting_Yard is
    function Eval_Stack (Line   : String;
@@ -30,7 +30,7 @@ package body Gcode.Shunting_Yard is
                         Output : in out Token_List) return Float_Value;
 
    package Float_Functions is new
-     Ada.Numerics.Generic_Elementary_Functions (Float_Value);
+     Numerics.Generic_Elementary_Functions (Float_Value);
 
    type Associative is (Left, Right);
    subtype Operators is Token_Type range Op_Plus .. Op_Power;
